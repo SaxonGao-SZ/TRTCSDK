@@ -50,6 +50,8 @@ TRTCSettingViewController::TRTCSettingViewController(SettingTagEnum tagType, HWN
     m_audioEffectParam3->publish = false;
 
     CDataCenter::GetInstance()->m_speakerVolume = TRTCCloudCore::GetInstance()->getTRTCCloud()->getCurrentSpeakerVolume();
+
+    is_init_windows_finished = false;
 }
 
 TRTCSettingViewController::~TRTCSettingViewController()
@@ -177,6 +179,7 @@ void TRTCSettingViewController::Notify(TNotifyUI & msg)
             //直播场景和视频通话场景默认码率值不一样。
             updateVideoBitrateUi();
             updateRoleUi();
+            UpdateAudioQualityUi();
         }
         if (name.CompareNoCase(_T("scene_call")) == 0) {
             CDataCenter::GetInstance()->m_sceneParams = TRTCAppSceneVideoCall;
@@ -188,12 +191,18 @@ void TRTCSettingViewController::Notify(TNotifyUI & msg)
             //直播场景和视频通话场景默认码率值不一样。
             updateVideoBitrateUi();
             updateRoleUi();
-            ::PostMessage(m_parentHwnd,WM_USER_CMD_RoleChange,(WPARAM)CDataCenter::GetInstance()->m_roleType,0);
+            UpdateAudioQualityUi();
+            LocalUserInfo& _loginInfo = CDataCenter::GetInstance()->getLocalUserInfo();
+            if (_loginInfo._bEnterRoom&& is_init_windows_finished)
+            {
+                ::PostMessage(m_parentHwnd, WM_USER_CMD_RoleChange, (WPARAM)CDataCenter::GetInstance()->m_roleType, 0);
+            }
         }
         if(name.CompareNoCase(_T("audio_scene_live")) == 0) {
             CDataCenter::GetInstance()->m_sceneParams = TRTCAppSceneVoiceChatRoom;
             //直播场景和视频通话场景默认码率值不一样。
             updateRoleUi();
+            UpdateAudioQualityUi();
         }
         if(name.CompareNoCase(_T("audio_scene_call")) == 0) {
             CDataCenter::GetInstance()->m_sceneParams = TRTCAppSceneAudioCall;
@@ -204,7 +213,12 @@ void TRTCSettingViewController::Notify(TNotifyUI & msg)
             }
             //直播场景和视频通话场景默认码率值不一样。
             updateRoleUi();
-            ::PostMessage(m_parentHwnd,WM_USER_CMD_RoleChange,(WPARAM)CDataCenter::GetInstance()->m_roleType,0);
+            UpdateAudioQualityUi();
+            LocalUserInfo& _loginInfo = CDataCenter::GetInstance()->getLocalUserInfo();
+            if (_loginInfo._bEnterRoom&& is_init_windows_finished)
+            {
+                ::PostMessage(m_parentHwnd, WM_USER_CMD_RoleChange, (WPARAM)CDataCenter::GetInstance()->m_roleType, 0);
+            }
         }
         if (name.CompareNoCase(_T("role_anchor")) == 0) {
             CDataCenter::GetInstance()->m_roleType = TRTCRoleAnchor;
@@ -212,7 +226,11 @@ void TRTCSettingViewController::Notify(TNotifyUI & msg)
             {
                 TRTCCloudCore::GetInstance()->getTRTCCloud()->switchRole(CDataCenter::GetInstance()->m_roleType);
             }
-            ::PostMessage(m_parentHwnd,WM_USER_CMD_RoleChange,(WPARAM)CDataCenter::GetInstance()->m_roleType,0);
+            LocalUserInfo& _loginInfo = CDataCenter::GetInstance()->getLocalUserInfo();
+            if (_loginInfo._bEnterRoom&& is_init_windows_finished)
+            {
+                ::PostMessage(m_parentHwnd, WM_USER_CMD_RoleChange, (WPARAM)CDataCenter::GetInstance()->m_roleType, 0);
+            }
         }
         if (name.CompareNoCase(_T("role_audience")) == 0) {
             CDataCenter::GetInstance()->m_roleType = TRTCRoleAudience;
@@ -220,7 +238,11 @@ void TRTCSettingViewController::Notify(TNotifyUI & msg)
             {
                 TRTCCloudCore::GetInstance()->getTRTCCloud()->switchRole(CDataCenter::GetInstance()->m_roleType);
             }
-            ::PostMessage(m_parentHwnd,WM_USER_CMD_RoleChange,(WPARAM)CDataCenter::GetInstance()->m_roleType,0);
+            LocalUserInfo& _loginInfo = CDataCenter::GetInstance()->getLocalUserInfo();
+            if (_loginInfo._bEnterRoom&& is_init_windows_finished)
+            {
+                ::PostMessage(m_parentHwnd, WM_USER_CMD_RoleChange, (WPARAM)CDataCenter::GetInstance()->m_roleType, 0);
+            }
         }
         
         if (name.CompareNoCase(_T("mix_temp_manual")) == 0) {
@@ -408,6 +430,8 @@ void TRTCSettingViewController::Notify(TNotifyUI & msg)
                 CDataCenter::GetInstance()->m_videoEncParams.videoResolution = TRTCVideoResolution_960_540;
             else if (msg.wParam == 16)
                 CDataCenter::GetInstance()->m_videoEncParams.videoResolution = TRTCVideoResolution_1280_720;
+            else if (msg.wParam == 17)
+                CDataCenter::GetInstance()->m_videoEncParams.videoResolution = TRTCVideoResolution_1920_1080;
 
             updateVideoBitrateUi();
 
@@ -472,6 +496,10 @@ void TRTCSettingViewController::Notify(TNotifyUI & msg)
         }
         else if (name.CompareNoCase(_T("combo_audio_quality")) == 0)
         {
+            if (is_init_audio_quality_combo){
+                is_init_audio_quality_combo = false;
+                return; 
+            }
             if (msg.wParam == 0) {
                 CDataCenter::GetInstance()->audio_quality_ = TRTCAudioQualitySpeech;
             }
@@ -1374,6 +1402,8 @@ void TRTCSettingViewController::InitWindow()
         }
         }
     }
+
+    is_init_windows_finished = true;
 }
 
 void TRTCSettingViewController::InitNormalTab()
@@ -1610,19 +1640,28 @@ void TRTCSettingViewController::InitAudioTab()
     m_pProgressTestNetwork = static_cast<CProgressUI*>(m_pmUI.FindControl(_T("progress_testnetwork")));
 
     CComboUI* audio_quality_combo = static_cast<CComboUI*>(m_pmUI.FindControl(_T("combo_audio_quality")));
-    if (audio_quality_combo) {
+    if (audio_quality_combo && CDataCenter::GetInstance()->audio_quality_ != TRTCAudioQualityUnSelect) {
+        is_init_audio_quality_combo = true;
         if (CDataCenter::GetInstance()->audio_quality_ == TRTCAudioQualitySpeech) { 
             audio_quality_combo->SelectItem(0);
         }
-        else if (CDataCenter::GetInstance()->audio_quality_ == TRTCAudioQualityDefault) {
+        else if (CDataCenter::GetInstance()->audio_quality_ == TRTCAudioQualityDefault)
+        {
             audio_quality_combo->SelectItem(1);
         }
-        else if (CDataCenter::GetInstance()->audio_quality_ == TRTCAudioQualityMusic) { 
+        else if (CDataCenter::GetInstance()->audio_quality_ == TRTCAudioQualityMusic)
+        {
             audio_quality_combo->SelectItem(2);
         }
-       
-        if (CDataCenter::GetInstance()->m_bIsEnteredRoom == true) {
-            audio_quality_combo->SetEnabled(false);
+        else
+        {
+            if (CDataCenter::GetInstance()->m_sceneParams == TRTCAppSceneVideoCall ||
+                CDataCenter::GetInstance()->m_sceneParams ==  TRTCAppSceneAudioCall) { 
+                audio_quality_combo->SelectItem(0);
+            }
+            else {
+                audio_quality_combo->SelectItem(1);
+            }
         }
     }
 
@@ -1753,6 +1792,10 @@ void TRTCSettingViewController::InitVideoTab()
         else if (CDataCenter::GetInstance()->m_videoEncParams.videoResolution == TRTCVideoResolution_1280_720)
         {
             pResolutionCombo->SelectItem(16);  bSetDefaultItem = true;
+        }
+        else if (CDataCenter::GetInstance()->m_videoEncParams.videoResolution == TRTCVideoResolution_1920_1080)
+        {
+            pResolutionCombo->SelectItem(17);  bSetDefaultItem = true;
         }
         if (bSetDefaultItem == false)
         {
@@ -2156,6 +2199,27 @@ void TRTCSettingViewController::updateRoleUi()
             {
                 pRoleAnchor->Selected(true);
             }
+        }
+    }
+}
+
+void TRTCSettingViewController::UpdateAudioQualityUi()
+{
+    if (CDataCenter::GetInstance()->m_sceneParams == TRTCAppSceneVideoCall ||
+        CDataCenter::GetInstance()->m_sceneParams ==  TRTCAppSceneAudioCall) {
+        CComboUI* audio_quality_combo = static_cast<CComboUI*>(m_pmUI.FindControl(_T("combo_audio_quality")));
+        if (CDataCenter::GetInstance()->audio_quality_ == TRTCAudioQualityUnSelect && audio_quality_combo) {
+            is_init_audio_quality_combo = true;
+            audio_quality_combo->SelectItem(0);
+        }
+    }
+    else
+    {
+        CComboUI* audio_quality_combo = static_cast<CComboUI*>(m_pmUI.FindControl(_T("combo_audio_quality")));
+        if (CDataCenter::GetInstance()->audio_quality_ == TRTCAudioQualityUnSelect && audio_quality_combo)
+        {
+            is_init_audio_quality_combo = true;
+            audio_quality_combo->SelectItem(1);
         }
     }
 }

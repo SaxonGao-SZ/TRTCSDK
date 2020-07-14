@@ -93,6 +93,7 @@ private:
     void stopAllTestSetting();
 private:
     void updateRoleUi();
+    void UpdateAudioQualityUi();
     void updateVideoBitrateUi();
     bool isCustomUploaderStreamIdValid(const std::string &streamId);
 public:
@@ -114,6 +115,8 @@ public:
     TRTCAudioEffectParam* m_audioEffectParam3;
 
     bool is_init_device_combo_list_ = false;
+    bool is_init_windows_finished = false;
+    bool is_init_audio_quality_combo = false;
 
     static int m_ref;
     static std::vector<TRTCSettingViewControllerNotify*> vecNotifyList;
